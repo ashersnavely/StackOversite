@@ -6,7 +6,6 @@ from Utility.read_write_lock import RWLock, WriteLock, ReadLock
 
 
 # TODO thread limit... ?
-#  seperate creation from thread starting!
 class ThreadExecutioner:
     _timeout = 1
 
@@ -17,8 +16,12 @@ class ThreadExecutioner:
         return was_alive
 
     def __init__(self, target, tasks: Queue, *args, **kwargs):
-        self.err = None
+        self._started = False
+        self._error = None
+
+        self.failure = threading.Event()
         self.kill_switch = threading.Event()
+        self._run = threading.Event()
 
         if not tasks:
             self.thread = threading.Thread(target=ThreadExecutioner.__solitary, args=(self, target, *args),
@@ -34,20 +37,44 @@ class ThreadExecutioner:
                                            kwargs=kwargs, daemon=True)
             self.thread.setName(f'Work Camp id#{threading.current_thread().ident}')
 
-        self.thread.start()
-
     def __del__(self):
+        self.stop()
+
+    def get_error(self):
+        return self._error
+
+    def start(self):
+        if not self._started:
+            self._run.set()
+            self.thread.start()
+
+    def pause(self):
+        self._run.clear()
+
+    def resume(self):
+        self._run.set()
+
+    def stop(self):
         self.kill_switch.set()
+        self._run.set()
+
         self.thread.join()
+
+    def __fail(self, error):
+        self.stop()
+
+        self._error = error
+        self.failure.set()
 
     def __solitary(self, target, *args, **kwargs):
         while True:
             try:
                 target(*args, **kwargs)
             except Exception as oop:
-                self.kill_switch.set()
-                self.err = oop
+                self.__fail(oop)
             finally:
+                if not self._run.is_set():
+                    self._run.wait()
                 if self.kill_switch.is_set():
                     return
 
@@ -65,17 +92,21 @@ class ThreadExecutioner:
                 task = tasks.get(timeout=ThreadExecutioner._timeout)
                 worker = threading.Thread(target=ThreadExecutioner.__work_camp, args=(self, target, task, *args),
                                           kwargs=kwargs)
+                worker.setName(f'{current_thread_name}\'s Worker id#{self.worker_count}')
 
                 with WriteLock(self.worker_lock):
                     if not self.kill_switch.is_set():
-                        worker.setName(f'{current_thread_name}\'s Worker id#{self.worker_count}')
-                        self.worker_count += 1
-
                         logging.info(f'Spawning new worker, {worker.getName()} for task {task}.')
+
+                        self.worker_count += 1
                         worker.start()
+                    else:
+                        tasks.put(task)
             except Empty:
                 pass
             finally:
+                if not self._run.is_set():
+                    self._run.wait()
                 if self.kill_switch.is_set():
                     ThreadExecutioner.__kill(thread_killer)
                     return
@@ -84,24 +115,21 @@ class ThreadExecutioner:
         try:
             target(*args, **kwargs)
         except Exception as oop:
-            self.kill_switch.set()
-            self.err = oop
+            self.__fail(oop)
         finally:
             self.finished.put(threading.current_thread())
 
     def __executioner(self, kill_method):
-        def kill(executioner):
-            kill_method(executioner.finished.get_site(timeout=ThreadExecutioner._timeout))
-            executioner.finished.task_done()
-
         while True:
             try:
-                kill(self)
+                kill_method(self.finished.get(timeout=ThreadExecutioner._timeout))
+                self.finished.task_done()
 
                 with WriteLock(self.worker_lock):
                     self.worker_count -= 1
             except Empty:
-                pass
+                if not self._run.is_set():
+                    self._run.wait()
             finally:
                 if self.kill_switch.is_set():
                     with ReadLock(self.worker_lock):

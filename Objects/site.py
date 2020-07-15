@@ -5,14 +5,15 @@ from stackapi import StackAPI
 
 from Controller.site_constants import SetupMethods, rate_limit
 from DTO.site_status import SiteStatus
+from Objects.task import Task
 
 
 class Site(StackAPI):
-    def __init__(self, url: str, **kwargs):
+    def __init__(self, site: str, **kwargs):
         self.throttle = rate_limit
         self.throttle_lock = threading.Lock()
 
-        super().__init__(url, max_pages=1, **kwargs)
+        super().__init__(site, max_pages=1, **kwargs)
 
         self.status = SiteStatus()
         self.tags = self.fetch(SetupMethods.Tags.value)['items']
@@ -24,10 +25,9 @@ class Site(StackAPI):
             sleep(self.throttle)
             return super().fetch(*args, **kwargs)
 
+    # TODO
     def update_status(self):
-        for name, scraper in self.tasks.items():
-            # TODO
-            pass
+        pass
 
     def get_tags(self):
         return self.tags
@@ -35,13 +35,11 @@ class Site(StackAPI):
     def get_status(self):
         return self.status
 
-    def get_tasks(self):
-        return self.tasks.keys()
+    def get_task(self, task_name: str):
+        return self.tasks[task_name]
 
-    def init_task(self):
-        # self.tasks.update({task_name: Task(task_name, self, **kwargs)})
-        pass
+    def create_task(self, task_name: str, **kwargs):
+        self.tasks.update({task_name: Task(task_name, self, **kwargs)})
 
-    def delete_task(self):
-        # TODO
-        pass
+    def delete_task(self, task_name: str):
+        self.tasks.pop(task_name)

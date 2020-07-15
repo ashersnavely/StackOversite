@@ -8,34 +8,25 @@ from Utility.thread_executioner import ThreadExecutioner
 
 
 # TODO add DB connection to dump data into
-# TODO seperate creation from thread starting
 class Task(object):
-    def __init__(self, name, site, **kwargs):
-        self.name = name
+    def __init__(self, site, name, **kwargs):
         self.site = site
+        self.name = name
         self.status = TaskStatus()
 
         self.page = 1
+        self.has_more = True
         self.post_queue = Queue()
 
         self.requester = ThreadExecutioner(self.request, None, **kwargs)
         self.scraper = ThreadExecutioner(self.scrape, self.post_queue, 'code')
+        # self.watch_tower = ThreadExecutioner(self.monitor, None)
 
-        self.error = Event()
-        self.watch_tower = ThreadExecutioner(self.monitor, None)
-
+    # TODO notify on failure of task, use observer!
     def monitor(self):
-        wait_any(self.requester.kill_switch, self.scraper.kill_switch, parent_event=self.error)
+        wait_any(self.requester.kill_switch, self.scraper.kill_switch, parent_event=Event())
 
-        if self.requester.kill_switch.is_set():
-            self.site.update_status()
-
-            self.status.error = self.requester.err
-            self.status.alive = self.requester.thread.is_alive()
-
-        else:
-            pass
-
+    # TODO check if has_more
     def request(self, **kwargs):
         kwargs[Fields.page.value] = self.page
 
@@ -48,16 +39,28 @@ class Task(object):
         for item in response:
             self.post_queue.put(item)
 
+    # TODO actually process the post items to pull out specified html tagged items
+    #  they will be part of args
+    # noinspection PyMethodMayBeStatic
     def scrape(self, post, *args):
-        # TODO actually process the post items to pull out specified html tagged items
-        #  they will be part of args
         print(post)
         pass
 
-    def start_task(self, task_name: str, **kwargs):
-        # TODO handle resuming a previously stopped task
-        pass
+    def get_status(self):
+        return self.status
 
-    def stop(self, task_name: str, **kwargs):
-        # TODO
-        pass
+    def start(self):
+        self.scraper.start()
+        self.requester.start()
+
+    def pause(self):
+        self.requester.pause()
+        self.scraper.pause()
+
+    def resume(self):
+        self.requester.resume()
+        self.scraper.resume()
+
+    def stop(self):
+        self.requester.stop()
+        self.scraper.stop()

@@ -12,7 +12,7 @@ def run():
 
 @app.route('/')
 def hello():
-    return 'Hello World!'
+    return 'Landing Page o-o'
 
 
 @app.route('/site_options', methods=['GET'])
@@ -21,9 +21,9 @@ def site_options():
                     'cacheable': True})
 
 
+# TODO update with DTO?
 @app.route('/methods', methods=['GET'])
 def methods():
-    # TODO update with DTO?
     return jsonify({'methods': {method.value: submethods for method, submethods in
                                 SiteController.get_instance().method_options.items()},
                     'cacheable': True})
@@ -47,71 +47,67 @@ def orders():
                     'cacheable': True})
 
 
+# TODO update with DTO?
 @app.route('/tags/<path:site>', methods=['GET'])
 def tags(site: str):
-    # TODO update with DTO?
     return jsonify({'tags': SiteController.get_instance().get_tags(site),
                     'cacheable': True})
 
 
+@app.route('/sites', methods=['GET'])
 def sites():
-    # TODO
-    pass
+    return jsonify({'sites': SiteController.get_instance().sites.keys(),
+                    'cacheable': False})
 
 
-def site_init():
-    # TODO
-    pass
+# TODO figure out how to do optional or var args for the keys and such
+@app.route('/sites/<path:site><string:key>', methods=['PUT'])
+def site_create(site: str, key: str):
+    SiteController.get_instance().create_site(site, key=key)
 
 
-def site_delet():
-    # TODO
-    pass
+@app.route('/sites/<path:site>', methods=['DELETE'])
+def site_delete(site: str):
+    SiteController.get_instance().delete_site(site)
 
 
-@app.route('/site_status/<path:site>', methods=['GET'])
+@app.route('/sites/<path:site>', methods=['GET'])
 def site_status(site: str):
-    # TODO
-    # return jsonify({'status': json.dumps(SiteController.get_instance().get_status(site), cls=StatusEncoder),
-    #                     'cacheable': False})
+    return jsonify({'site': SiteController.get_instance().get_site(site).get_status()})
+
+
+@app.route('/sites/<path:site>/tasks')
+def tasks(site: str):
+    return SiteController.get_instance().get_site(site).tasks.keys()
+
+
+# TODO
+def task_create(site: str, method: str, sort: str, order: str, tag: str, page: int,
+                fromdate: int, todate: int, key: str):
     pass
 
 
-def tasks():
-    # TODO
-    pass
+# TODO remove task results from database as well
+def task_delete(site: str, task: str):
+    SiteController.get_instance().get_site(site).delete_task(task)
 
 
-@app.route('/task_start/<path:site><string:method><string:sort><string:order><string:tag>'
-           '<int:page><int:fromdate><int:todate><string:key>', methods=['PUT'])
-def task_start(site: str, method: str, sort: str, order: str, tag: str, page: int,
-               fromdate: int, todate: int, key: str):
-    # TODO
-    pass
+def task_start(site: str, task: str):
+    SiteController.get_instance().get_site(site).get_task(task).start()
 
 
-def task_stop():
-    # TODO
-    pass
+def task_pause(site: str, task: str):
+    SiteController.get_instance().get_site(site).get_task(task).pause()
 
 
-def task_resume():
-    # TODO
-    pass
+def task_resume(site: str, task: str):
+    SiteController.get_instance().get_site(site).get_task(task).resume()
 
 
-def task_delete():
-    # TODO
-    # will remove task results from database as well
-    pass
+def task_status(site: str, task: str):
+    SiteController.get_instance().get_site(site).get_task(task).get_status()
 
 
-def task_status():
-    # TODO
-    pass
-
-
+# TODO this will start a LARGE transfer.... need to check out some file transfer techniques?
 def task_results():
-    # TODO
-    # this will start a LARGE transfer.... need to check out some file transfer techniques?
     pass

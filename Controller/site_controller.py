@@ -52,19 +52,15 @@ class _SiteController:
         self.method_options = method_options
         self.sites = {}
 
-    def init_site(self, url: str):
+    def create_site(self, url: str, **kwargs):
         if url in self.site_options:
             if url not in self.sites:
-                self.sites.update({url: Site(url)})
+                self.sites.update({url: Site(url, **kwargs)})
                 return True
             return False
 
-    def delet_site(self):
-        pass
+    def delete_site(self, url: str):
+        self.sites.pop(url)
 
     def get_site(self, url: str):
-        if url not in self.sites:
-            if not self.init_site(url):
-                return None
-
         return self.sites[url]
