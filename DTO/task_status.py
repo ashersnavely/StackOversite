@@ -2,13 +2,13 @@ from json import JSONEncoder
 
 
 class TaskStatus(object):
-    def __init__(self, error=None, alive=True, page=1, processed=0, has_more=False, total=0):
-        self.error = error
-        self.alive = alive
-        self.page = page
-        self.processed = processed
-        self.has_more = has_more
-        self.total = total
+    def __init__(self, task):
+        self.error = task.errored
+        self.working = task.working
+        self.page = task.page
+        self.has_more = task.has_more
+        self.total_avail = task.total
+        self.processed = task.processed
 
 
 class StatusEncoder(JSONEncoder):

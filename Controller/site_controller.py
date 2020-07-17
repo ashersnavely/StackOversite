@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup, Tag
 
 from Controller.site_constants import *
 from Objects.site import Site
+from Utility.observer import Observer
 
 
 class SiteController:
@@ -25,13 +26,13 @@ class SiteController:
     @staticmethod
     def __fetch_method_options():
         api_soup = BeautifulSoup(requests.get(f'{api_url}/docs').content, 'html.parser')
-        method_options = {}
+        method_options = dict()
 
         for method in Methods:
             sub_methods = api_soup.find('body').find('a', text=f'{method.value}').parent.parent.parent.contents
             sub_methods = [item for item in sub_methods if isinstance(item, Tag)]
 
-            options = []
+            options = list()
             for sub_method in sub_methods:
                 method_description = sub_method.find('div', {'class': 'method-description'}).text.strip()
                 if 'auth required' not in method_description:
@@ -46,21 +47,34 @@ class SiteController:
         return method_options
 
 
-class _SiteController:
+class _SiteController(Observer):
     def __init__(self, site_options: list, method_options: list):
         self.site_options = site_options
         self.method_options = method_options
-        self.sites = {}
+        self.sites = dict()
 
     def create_site(self, url: str, **kwargs):
         if url in self.site_options:
             if url not in self.sites:
-                self.sites.update({url: Site(url, **kwargs)})
+                site = Site(url, **kwargs)
+                site.subscribe(self)
+
+                self.sites.update({url: site})
+
                 return True
             return False
 
     def delete_site(self, url: str):
         self.sites.pop(url)
 
+    def get_sites(self):
+        return self.sites
+
     def get_site(self, url: str):
         return self.sites[url]
+
+    def update(self, site: Site):
+        print(f'Working Sites: {site.working}')
+        print(f'Errored Sites: {site.errored}')
+        print(f'Paused Sites: {site.paused}')
+        print(f'finished Sites: {site.finished}')

@@ -1,66 +1,139 @@
+import threading
 from queue import Queue
-from threading import Event
 
+from bs4 import BeautifulSoup
+
+from Controller.database_controller import DatabaseController
 from Controller.site_constants import Fields
+from DTO.post import PostTypes, Post
 from DTO.task_status import TaskStatus
-from Utility.event_wait import wait_any
+from Utility.observable import Observable
 from Utility.thread_executioner import ThreadExecutioner
 
 
-# TODO add DB connection to dump data into
-class Task(object):
-    def __init__(self, site, name, **kwargs):
+# TODO finalize DB dumping method
+class Task(Observable):
+    def __init__(self, site, name, *args, **kwargs):
+        Observable.__init__(self)
+
         self.site = site
         self.name = name
-        self.status = TaskStatus()
 
+        self.error = None
+        self.working = False
         self.page = 1
         self.has_more = True
+        self.total = 0
+        self.processed = 0
+        self.processed_lock = threading.Lock()
+
         self.post_queue = Queue()
 
         self.requester = ThreadExecutioner(self.request, None, **kwargs)
-        self.scraper = ThreadExecutioner(self.scrape, self.post_queue, 'code')
-        # self.watch_tower = ThreadExecutioner(self.monitor, None)
+        self.scraper = ThreadExecutioner(self.scrape, self.post_queue, *args)
 
-    # TODO notify on failure of task, use observer!
-    def monitor(self):
-        wait_any(self.requester.kill_switch, self.scraper.kill_switch, parent_event=Event())
-
-    # TODO check if has_more
     def request(self, **kwargs):
         kwargs[Fields.page.value] = self.page
 
-        status = self.site.fetch(**kwargs)
-        response = status.pop('items')
-        self.site.set_status(**status)
+        try:
+            status = self.site.fetch(**kwargs)
+            response = status.pop('items')
 
-        self.page += 1
+            for item in response:
+                self.post_queue.put(item)
 
-        for item in response:
-            self.post_queue.put(item)
+            if not self.total and 'total' in status:
+                self.total = status['total']
 
-    # TODO actually process the post items to pull out specified html tagged items
-    #  they will be part of args
-    # noinspection PyMethodMayBeStatic
+            if 'has_more' in status and status['has_more']:
+                self.page += 1
+            else:
+                self.finish()
+
+                self.has_more = False
+                self.working = False
+        except Exception as error:
+            self.error = error
+            print(error)
+            self.working = False
+
+            raise error
+        finally:
+            self.notify()
+
     def scrape(self, post, *args):
-        print(post)
-        pass
+        post_id = None
+        post_type = None
+        for key in post:
+            if 'id' in key:
+                post_id = post[key]
+
+                if PostTypes.Answer.value in key:
+                    post_type = PostTypes.Answer
+                elif PostTypes.Question.value in key:
+                    post_type = PostTypes.Question
+                else:
+                    post_type = PostTypes.Comment
+
+                break
+
+        link = post['link']
+        soup = BeautifulSoup(post['body'], "html.parser")
+
+        tags = {}
+        for tag in args:
+            if not isinstance(tag, dict):
+                for elem in soup.find_all(tag):
+                    tags.update({tag: elem.text})
+
+        tag_attrs = {}
+        for arg in args:
+            if isinstance(arg, dict):
+                for tag, attr in arg.items():
+                    for elem in soup.find_all(tag):
+                        tags.update({tag: elem.attrs[attr]})
+
+        data = {**tags, **tag_attrs}
+        if data:
+            DatabaseController.get_instance().dump(Post(post_id, data, link, post_type))
+
+        with self.processed_lock:
+            self.processed += 1
 
     def get_status(self):
-        return self.status
+        return TaskStatus(self)
 
     def start(self):
         self.scraper.start()
         self.requester.start()
 
+        self.working = True
+        self.notify()
+
     def pause(self):
         self.requester.pause()
         self.scraper.pause()
+
+        self.working = False
+        self.notify()
 
     def resume(self):
         self.requester.resume()
         self.scraper.resume()
 
+        self.working = True
+        self.notify()
+
+    def finish(self):
+        self.requester.stop()
+        self.scraper.finish()
+
+        self.working = False
+        self.notify()
+
     def stop(self):
         self.requester.stop()
         self.scraper.stop()
+
+        self.working = False
+        self.notify()
