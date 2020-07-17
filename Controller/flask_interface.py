@@ -5,6 +5,7 @@ from Controller.site_controller import SiteController
 
 app = Flask('StackExchangeScraper')
 
+
 # TODO finish Flask restful api, review restful design
 def run():
     app.run(debug=True)
