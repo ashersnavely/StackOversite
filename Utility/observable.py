@@ -21,10 +21,5 @@ class Observable(object):
 
     def notify(self):
         with self.notification_lock:
-            new_hash = self.__hash__()
-
-            if new_hash != self.hash:
-                for subscriber in self.subscribers:
-                    subscriber.update(self)
-
-            self.hash = new_hash
+            for subscriber in self.subscribers:
+                subscriber.update(self)

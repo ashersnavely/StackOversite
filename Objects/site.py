@@ -32,6 +32,7 @@ class Site(StackAPI, Observable, Observer):
         return super().fetch(*args, **kwargs)
 
     def update(self, task: Task):
+        # TODO debug glitch, one stays in working
         if not task.working:
             if task in self.working:
                 self.working.remove(task)
@@ -48,6 +49,7 @@ class Site(StackAPI, Observable, Observer):
 
             self.working.add(Task)
 
+        print(f'Site {self} updated, notifying controller')
         self.notify()
 
     def get_tags(self):

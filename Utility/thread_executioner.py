@@ -25,7 +25,7 @@ class ThreadExecutioner:
 
         if not tasks:
             self.thread = threading.Thread(target=ThreadExecutioner.__solitary, args=(self, target, *args),
-                                           kwargs=kwargs, daemon=True)
+                                           kwargs=kwargs)
             self.thread.setName(f'Solitary Confinement id#{threading.current_thread().ident}')
         else:
             self.finished = Queue()
@@ -34,7 +34,7 @@ class ThreadExecutioner:
             self.worker_lock = RWLock()
 
             self.thread = threading.Thread(target=ThreadExecutioner.__spawn, args=(self, target, tasks, *args),
-                                           kwargs=kwargs, daemon=True)
+                                           kwargs=kwargs)
             self.thread.setName(f'Work Camp id#{threading.current_thread().ident}')
 
     def __del__(self):
@@ -76,8 +76,9 @@ class ThreadExecutioner:
                 target(*args, **kwargs)
             except Exception as error:
                 self._error = error
-                print(error)
                 self.stop()
+
+                print(error)
             finally:
                 if not self._run.is_set():
                     self._run.wait()
@@ -87,8 +88,7 @@ class ThreadExecutioner:
     def __spawn(self, target, tasks: Queue, *args, **kwargs):
         current_thread_name = threading.current_thread().getName()
 
-        thread_killer = threading.Thread(target=ThreadExecutioner.__executioner, args=(self, ThreadExecutioner.__kill),
-                                         daemon=True)
+        thread_killer = threading.Thread(target=ThreadExecutioner.__executioner, args=(self, ThreadExecutioner.__kill))
         thread_killer.setName(f'{current_thread_name}\'s Thread Killer')
 
         logging.info(f'Spawning new executioner, {thread_killer.getName()}.')
@@ -98,7 +98,7 @@ class ThreadExecutioner:
             try:
                 task = tasks.get(timeout=ThreadExecutioner._timeout)
                 worker = threading.Thread(target=ThreadExecutioner.__work_camp, args=(self, target, task, *args),
-                                          kwargs=kwargs, daemon=True)
+                                          kwargs=kwargs)
                 worker.setName(f'{current_thread_name}\'s Worker id#{self.worker_count}')
 
                 with WriteLock(self.worker_lock):
@@ -125,8 +125,9 @@ class ThreadExecutioner:
             target(*args, **kwargs)
         except Exception as error:
             self._error = error
-            print(error)
             self.stop()
+
+            print(error)
         finally:
             self.finished.put(threading.current_thread())
 

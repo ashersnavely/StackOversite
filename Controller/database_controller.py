@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 
 from DTO.post import Post
@@ -20,10 +21,18 @@ class DatabaseController:
 class _DatabaseController:
     def __init__(self):
         self.file = open(f'scrape.{datetime.now()}.json', 'w')
+        self.file.write('{"data": [')
+        self.first = True
 
-    def __del__(self):
+    def persist(self):
+        self.file.seek(self.file.tell() - 2, os.SEEK_SET)
+        self.file.truncate()
+
+        self.file.write(']}')
         self.file.close()
 
     @Synchronize
     def dump(self, post: Post):
         json.dump(post.__dict__, self.file)
+
+        self.file.write(', ')

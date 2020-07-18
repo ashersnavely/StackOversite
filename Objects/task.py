@@ -2,6 +2,7 @@ import threading
 from queue import Queue
 
 from bs4 import BeautifulSoup
+from stackapi import StackAPIError
 
 from Controller.database_controller import DatabaseController
 from Controller.site_constants import Fields
@@ -52,12 +53,16 @@ class Task(Observable):
 
                 self.has_more = False
                 self.working = False
-        except Exception as error:
+        except StackAPIError as error:
             self.error = error
-            print(error)
             self.working = False
 
-            raise error
+            if error.code == 'throttle_violation':
+                self.pause()
+            elif 'Max retries exceeded' in error.code:
+                self.pause()
+            else:
+                raise error
         finally:
             self.notify()
 
