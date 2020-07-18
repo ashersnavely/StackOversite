@@ -35,13 +35,13 @@ key = '1yfsxJa1AC*GlxN6RSemCQ(('
 
 url = 'stackoverflow'
 
-SiteController.get_instance().create_site(url)
+SiteController.get_instance().create_site(url, key=key)
 
 SiteController.get_instance().get_site(url).create_task('gib answers', 'code', endpoint='answers', filter=answer_filter,
                                                         sort='creation', order='desc', tagged='python')
-SiteController.get_instance().get_site(url).create_task('gib questions', 'code', endpoint='questions',
+SiteController.get_instance().get_site(url).create_task('gib questions', {'a': 'href'}, endpoint='questions',
                                                         filter=question_filter,
-                                                        sort='creation', order='asc', tagged='python')
+                                                        sort='votes', order='asc', tagged='java')
 
 tasks = SiteController.get_instance().get_site(url).get_tasks()
 for task_name in tasks:

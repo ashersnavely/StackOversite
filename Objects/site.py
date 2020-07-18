@@ -49,7 +49,6 @@ class Site(StackAPI, Observable, Observer):
 
             self.working.add(Task)
 
-        print(f'Site {self} updated, notifying controller')
         self.notify()
 
     def get_tags(self):

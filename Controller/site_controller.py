@@ -74,7 +74,8 @@ class _SiteController(Observer):
         return self.sites[url]
 
     def update(self, site: Site):
-        print(f'Working Sites: {site.working}')
-        print(f'Errored Sites: {site.errored}')
-        print(f'Paused Sites: {site.paused}')
-        print(f'finished Sites: {site.finished}')
+        if site.errored:
+            print(f'Errored Sites: {site.errored}')
+        # print(f'Working Sites: {site.working}')
+        # print(f'Paused Sites: {site.paused}')
+        # print(f'finished Sites: {site.finished}')
